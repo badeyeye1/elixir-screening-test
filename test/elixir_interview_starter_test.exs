@@ -1,4 +1,5 @@
 defmodule ElixirInterviewStarterTest do
+  @moduledoc false
   use ExUnit.Case
   doctest ElixirInterviewStarter
   alias ElixirInterviewStarter.CalibrationSession
@@ -11,7 +12,61 @@ defmodule ElixirInterviewStarterTest do
     send(server_pid, {:device_msg, payload})
   end
 
-  test "it can go through the whole flow happy path" do
+  test "it can go through the whole flow happy path", %{server_pid: server_pid} do
+    user_email = "happy@mail.com"
+
+    {:ok, %CalibrationSession{status: "PRE_CHECK1_STARTED", precheck1: nil}} =
+      ElixirInterviewStarter.start(user_email)
+
+    # Simulate receiving precheck1 message from the device
+    simulate_device_msg(server_pid, %{"precheck1" => true, "user_email" => user_email})
+    :sys.get_state(server_pid)
+
+    assert {:ok, %CalibrationSession{status: "PRE_CHECK1_SUCCEDED", precheck1: true}} =
+             ElixirInterviewStarter.get_current_session(user_email)
+
+    assert {:ok,
+            %CalibrationSession{
+              status: "PRE_CHECK2_STARTED",
+              cartridge_status: nil,
+              submerged_in_water: nil
+            }} = ElixirInterviewStarter.start_precheck_2(user_email)
+
+    # Simulate receiving cartridgeStatus message from the device
+    simulate_device_msg(server_pid, %{"cartridgeStatus" => true, "user_email" => user_email})
+    :sys.get_state(server_pid)
+
+    assert {:ok,
+            %CalibrationSession{
+              status: "PRE_CHECK2_STARTED",
+              cartridge_status: true,
+              submerged_in_water: nil
+            }} = ElixirInterviewStarter.get_current_session(user_email)
+
+    # Simulate receiving submergedInWater message from the device
+    simulate_device_msg(server_pid, %{"submergedInWater" => true, "user_email" => user_email})
+
+    # sleep is required to ensure SessionManager automatically triggers calibration before next step
+    Process.sleep(1)
+    :sys.get_state(server_pid)
+
+    assert {:ok,
+            %CalibrationSession{
+              status: "CALIBRATION_STARTED",
+              cartridge_status: true,
+              submerged_in_water: true
+            }} = ElixirInterviewStarter.get_current_session(user_email)
+
+    # Simulate receiving calibrated message from the device
+    simulate_device_msg(server_pid, %{"calibrated" => true, "user_email" => user_email})
+    :sys.get_state(server_pid)
+
+    assert {:ok,
+            %CalibrationSession{
+              status: "CALIBRATION_SUCCEEDED",
+              cartridge_status: true,
+              submerged_in_water: true
+            }} = ElixirInterviewStarter.get_current_session(user_email)
   end
 
   test "start/1 creates a new calibration session and starts precheck 1" do

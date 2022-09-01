@@ -103,6 +103,7 @@ defmodule ElixirInterviewStarter.SessionManager do
 
   def handle_info(%{"submergedInWater" => true}, state) do
     new_state = %{state | submerged_in_water: true, status: "PRE_CHECK2_SUCCEEDED"}
+    send(self(), :start_calibration)
     {:noreply, new_state}
   end
 
@@ -110,6 +111,21 @@ defmodule ElixirInterviewStarter.SessionManager do
     {:noreply, %{state | submerged_in_water: false, status: @pre_check2_failed}}
   end
 
+  def handle_info(:start_calibration, %CalibrationSession{user_email: user_email} = state) do
+    :ok = DeviceMessages.send(user_email, "calibrate")
+    new_state = %{state | status: "CALIBRATION_STARTED"}
+    {:noreply, new_state}
+  end
+
+  def handle_info(%{"calibrated" => true}, state) do
+    {:noreply, %{state | calibrated: true, status: "CALIBRATION_SUCCEEDED"}}
+  end
+
+  def handle_info(%{"calibrated" => _}, state) do
+    {:noreply, %{state | calibrated: false, status: "CALIBRATION_FAILED"}}
+  end
+
+  # catch any message that does not match and log to console
   def handle_info(msg, state) do
     Logger.warn("Received unknown message - #{inspect(msg)}")
     {:noreply, state}
