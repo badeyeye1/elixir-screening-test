@@ -13,6 +13,7 @@ defmodule ElixirInterviewStarter.SessionManager do
 
   @pre_check2_failed "PRE_CHECK2_FAILED"
   @pre_check2_started "PRE_CHECK2_STARTED"
+  @calibration_failed "CALIBRATION_FAILED"
 
   # Client API
   @spec start(String.t()) :: {:error, any} | {:ok, pid}
@@ -89,12 +90,14 @@ defmodule ElixirInterviewStarter.SessionManager do
   end
 
   @impl GenServer
-  def handle_info(%{"precheck1" => true}, state) do
-    {:noreply, %{state | precheck1: true, status: "PRE_CHECK1_SUCCEDED"}}
+  def handle_info(%{"precheck1" => true}, %{timer_ref: timer_ref} = state) do
+    clear_timer(timer_ref)
+    {:noreply, %{state | precheck1: true, status: "PRE_CHECK1_SUCCEDED", timer_ref: nil}}
   end
 
-  def handle_info(%{"precheck1" => _val}, state) do
-    {:noreply, %{state | precheck1: false, status: "PRE_CHECK1_FAILED"}}
+  def handle_info(%{"precheck1" => _val}, %{timer_ref: timer_ref} = state) do
+    clear_timer(timer_ref)
+    {:noreply, %{state | precheck1: false, status: "PRE_CHECK1_FAILED", timer_ref: nil}}
   end
 
   def handle_info(%{"cartridgeStatus" => true}, state) do
@@ -105,8 +108,16 @@ defmodule ElixirInterviewStarter.SessionManager do
     {:noreply, %{state | cartridge_status: false, status: @pre_check2_failed}}
   end
 
-  def handle_info(%{"submergedInWater" => true}, state) do
-    new_state = %{state | submerged_in_water: true, status: "PRE_CHECK2_SUCCEEDED"}
+  def handle_info(%{"submergedInWater" => true}, %{timer_ref: timer_ref} = state) do
+    clear_timer(timer_ref)
+
+    new_state = %{
+      state
+      | submerged_in_water: true,
+        status: "PRE_CHECK2_SUCCEEDED",
+        timer_ref: nil
+    }
+
     send(self(), :start_calibration)
     {:noreply, new_state}
   end
@@ -123,38 +134,39 @@ defmodule ElixirInterviewStarter.SessionManager do
     {:noreply, new_state}
   end
 
-  def handle_info(%{"calibrated" => true}, state) do
-    {:noreply, %{state | calibrated: true, status: "CALIBRATION_SUCCEEDED"}}
+  def handle_info(%{"calibrated" => true}, %{timer_ref: timer_ref} = state) do
+    clear_timer(timer_ref)
+    {:noreply, %{state | calibrated: true, status: "CALIBRATION_SUCCEEDED", timer_ref: nil}}
   end
 
   def handle_info(%{"calibrated" => _}, state) do
-    {:noreply, %{state | calibrated: false, status: "CALIBRATION_FAILED"}}
+    {:noreply, %{state | calibrated: false, status: @calibration_failed}}
   end
 
   @doc """
   Set calibration status as failed if precheck1 is not completed after 30 seconds
   """
   def handle_info(:check_calibration_status, %CalibrationSession{precheck1: nil} = state) do
-    Process.cancel_timer(state.timer_ref)
+    clear_timer(state.timer_ref)
     Logger.error("Calibration failed.\n Did not receive response from device after 30 seconds")
-    new_state = %{state | status: "CALIBRATION_FAILED", timer_ref: nil}
 
+    new_state = %{state | status: @calibration_failed, timer_ref: nil}
     {:noreply, new_state}
   end
 
   def handle_info(:check_calibration_status, %{status: @pre_check2_started} = state) do
-    Process.cancel_timer(state.timer_ref)
+    clear_timer(state.timer_ref)
     Logger.error("Calibration failed.\n Did not receive response from device after 30 seconds")
-    new_state = %{state | status: "CALIBRATION_FAILED", timer_ref: nil}
 
+    new_state = %{state | status: @calibration_failed, timer_ref: nil}
     {:noreply, new_state}
   end
 
   def handle_info(:check_calibration_status, %{status: "CALIBRATION_STARTED"} = state) do
-    Process.cancel_timer(state.timer_ref)
+    clear_timer(state.timer_ref)
     Logger.error("Calibration failed.\n Did not receive response from device after 100 seconds")
-    new_state = %{state | status: "CALIBRATION_FAILED", timer_ref: nil}
 
+    new_state = %{state | status: @calibration_failed, timer_ref: nil}
     {:noreply, new_state}
   end
 
@@ -168,4 +180,10 @@ defmodule ElixirInterviewStarter.SessionManager do
     Logger.warn("Received unknown message - #{inspect(msg)}")
     {:noreply, state}
   end
+
+  defp clear_timer(timer_ref) when is_reference(timer_ref) do
+    Process.cancel_timer(timer_ref)
+  end
+
+  defp clear_timer(_), do: :ok
 end
