@@ -6,6 +6,7 @@ defmodule ElixirInterviewStarter.Application do
   @impl true
   def start(_type, _args) do
     children = [
+      ElixirInterviewStarter,
       ElixirInterviewStarter.DeviceRegistry
     ]
 
@@ -13,4 +14,3 @@ defmodule ElixirInterviewStarter.Application do
     Supervisor.start_link(children, opts)
   end
 end
-

@@ -5,7 +5,13 @@ defmodule ElixirInterviewStarter.CalibrationSession do
   with the session.
   """
 
-  @type t() :: %__MODULE__{precheck1: boolean(), status: String.t(), user_email: String.t()}
+  @type t() :: %__MODULE__{
+          cartridge_status: boolean(),
+          precheck1: boolean(),
+          status: String.t(),
+          submerged_in_water: boolean(),
+          user_email: String.t()
+        }
 
-  defstruct [:precheck1, :status, :user_email]
+  defstruct [:cartridge_status, :precheck1, :status, :submerged_in_water, :user_email]
 end

@@ -41,8 +41,20 @@ defmodule ElixirInterviewStarter do
   with precheck 1, or their calibration session has already completed precheck 2, returns
   an error.
   """
-  def start_precheck_2(_user_email) do
-    {:ok, %CalibrationSession{}}
+  def start_precheck_2(user_email) do
+    with {:ok, session_pid} <- SessionManager.get_session_pid(user_email),
+         {:ok, %CalibrationSession{}} = response <- SessionManager.start_precheck_2(session_pid) do
+      response
+    else
+      {:error, :session_does_not_exist} ->
+        {:error, "No ongoing calibration for user"}
+
+      {:error, :pending_precheck_1} ->
+        {:error, "Not done with precheck 1"}
+
+      {:error, :precheck_2_already_completed} ->
+        {:error, "Precheck 2 already completed"}
+    end
   end
 
   @spec get_current_session(user_email :: String.t()) :: {:ok, CalibrationSession.t() | nil}
