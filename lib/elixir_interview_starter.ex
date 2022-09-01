@@ -4,6 +4,7 @@ defmodule ElixirInterviewStarter do
   """
 
   alias ElixirInterviewStarter.CalibrationSession
+  alias ElixirInterviewStarter.SessionManager
 
   @spec start(user_email :: String.t()) :: {:ok, CalibrationSession.t()} | {:error, String.t()}
   @doc """
@@ -12,8 +13,14 @@ defmodule ElixirInterviewStarter do
 
   If the user already has an ongoing `CalibrationSession`, returns an error.
   """
-  def start(_user_email) do
-    {:ok, %CalibrationSession{}}
+  def start(user_email) do
+    with {:ok, session_pid} <- SessionManager.start(user_email),
+         %CalibrationSession{} = session <- SessionManager.start_precheck_1(session_pid) do
+      {:ok, session}
+    else
+      {:error, {:already_started, _pid}} ->
+        {:error, "Calibration already started"}
+    end
   end
 
   @spec start_precheck_2(user_email :: String.t()) ::
