@@ -1,10 +1,19 @@
 defmodule ElixirInterviewStarter do
   @moduledoc """
   See `README.md` for instructions on how to approach this technical challenge.
+
+  A singleton genserver responsible for creating calibration session managers and receiving
+  async messages from a device and dispatching the message to the device's `SessionManager`
   """
+  use GenServer
+  require Logger
 
   alias ElixirInterviewStarter.CalibrationSession
   alias ElixirInterviewStarter.SessionManager
+
+  def start_link(init_arg \\ []) do
+    GenServer.start_link(__MODULE__, init_arg, name: __MODULE__)
+  end
 
   @spec start(user_email :: String.t()) :: {:ok, CalibrationSession.t()} | {:error, String.t()}
   @doc """
@@ -42,5 +51,27 @@ defmodule ElixirInterviewStarter do
   """
   def get_current_session(_user_email) do
     {:ok, nil}
+  end
+
+  # Server (Callbacks)
+  @impl GenServer
+  def init(state) do
+    {:ok, state}
+  end
+
+  @impl GenServer
+  def handle_info(
+        {:device_msg, %{"user_email" => user_email} = payload},
+        state
+      ) do
+    case SessionManager.get_session_pid(user_email) do
+      {:ok, session_pid} ->
+        Process.send(session_pid, payload, [])
+
+      {:error, _} ->
+        Logger.warn("received message from device without an active session")
+    end
+
+    {:noreply, state}
   end
 end

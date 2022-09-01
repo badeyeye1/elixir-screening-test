@@ -5,6 +5,8 @@ defmodule ElixirInterviewStarter.SessionManager do
   Also processes async messages received from a device and updates the session state accordingly.
   """
   use GenServer
+  require Logger
+
   alias ElixirInterviewStarter.CalibrationSession
   alias ElixirInterviewStarter.DeviceMessages
   alias ElixirInterviewStarter.DeviceRegistry
@@ -22,6 +24,14 @@ defmodule ElixirInterviewStarter.SessionManager do
     GenServer.call(session_pid, :start_precheck_1, 3000)
   end
 
+  @spec get_session_pid(String.t()) :: {:ok, pid} | {:error, :session_does_not_exist}
+  def get_session_pid(user_email) do
+    case DeviceRegistry.whereis_name(user_email) do
+      :undefined -> {:error, :session_does_not_exist}
+      session_pid -> {:ok, session_pid}
+    end
+  end
+
   # Callbacks
   @impl GenServer
   def init(initial_state) do
@@ -33,5 +43,11 @@ defmodule ElixirInterviewStarter.SessionManager do
     :ok = DeviceMessages.send(user_email, "startPrecheck1")
     new_state = %{state | status: "PRE_CHECK1_STARTED"}
     {:reply, new_state, new_state}
+  end
+
+  @impl GenServer
+  def handle_info(msg, state) do
+    Logger.warn("Received unknown message - #{inspect(msg)}")
+    {:noreply, state}
   end
 end
