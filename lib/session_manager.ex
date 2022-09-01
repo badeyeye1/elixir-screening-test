@@ -12,6 +12,7 @@ defmodule ElixirInterviewStarter.SessionManager do
   alias ElixirInterviewStarter.DeviceRegistry
 
   @pre_check2_failed "PRE_CHECK2_FAILED"
+  @pre_check2_started "PRE_CHECK2_STARTED"
 
   # Client API
   @spec start(String.t()) :: {:error, any} | {:ok, pid}
@@ -54,7 +55,9 @@ defmodule ElixirInterviewStarter.SessionManager do
   @impl GenServer
   def handle_call(:start_precheck_1, _from, %CalibrationSession{user_email: user_email} = state) do
     :ok = DeviceMessages.send(user_email, "startPrecheck1")
-    new_state = %{state | status: "PRE_CHECK1_STARTED"}
+    timer_ref = Process.send_after(self(), :check_calibration_status, 30_000)
+
+    new_state = %{state | status: "PRE_CHECK1_STARTED", timer_ref: timer_ref}
     {:reply, new_state, new_state}
   end
 
@@ -72,7 +75,8 @@ defmodule ElixirInterviewStarter.SessionManager do
         %CalibrationSession{user_email: user_email, precheck1: true} = state
       ) do
     :ok = DeviceMessages.send(user_email, "startPrecheck2")
-    new_state = %{state | status: "PRE_CHECK2_STARTED"}
+    timer_ref = Process.send_after(self(), :check_calibration_status, 30_000)
+    new_state = %{state | status: @pre_check2_started, timer_ref: timer_ref}
     {:reply, {:ok, new_state}, new_state}
   end
 
@@ -113,7 +117,9 @@ defmodule ElixirInterviewStarter.SessionManager do
 
   def handle_info(:start_calibration, %CalibrationSession{user_email: user_email} = state) do
     :ok = DeviceMessages.send(user_email, "calibrate")
-    new_state = %{state | status: "CALIBRATION_STARTED"}
+    time_ref = Process.send_after(self(), :check_calibration_status, 100_000)
+
+    new_state = %{state | status: "CALIBRATION_STARTED", timer_ref: time_ref}
     {:noreply, new_state}
   end
 
@@ -123,6 +129,38 @@ defmodule ElixirInterviewStarter.SessionManager do
 
   def handle_info(%{"calibrated" => _}, state) do
     {:noreply, %{state | calibrated: false, status: "CALIBRATION_FAILED"}}
+  end
+
+  @doc """
+  Set calibration status as failed if precheck1 is not completed after 30 seconds
+  """
+  def handle_info(:check_calibration_status, %CalibrationSession{precheck1: nil} = state) do
+    Process.cancel_timer(state.timer_ref)
+    Logger.error("Calibration failed.\n Did not receive response from device after 30 seconds")
+    new_state = %{state | status: "CALIBRATION_FAILED", timer_ref: nil}
+
+    {:noreply, new_state}
+  end
+
+  def handle_info(:check_calibration_status, %{status: @pre_check2_started} = state) do
+    Process.cancel_timer(state.timer_ref)
+    Logger.error("Calibration failed.\n Did not receive response from device after 30 seconds")
+    new_state = %{state | status: "CALIBRATION_FAILED", timer_ref: nil}
+
+    {:noreply, new_state}
+  end
+
+  def handle_info(:check_calibration_status, %{status: "CALIBRATION_STARTED"} = state) do
+    Process.cancel_timer(state.timer_ref)
+    Logger.error("Calibration failed.\n Did not receive response from device after 100 seconds")
+    new_state = %{state | status: "CALIBRATION_FAILED", timer_ref: nil}
+
+    {:noreply, new_state}
+  end
+
+  def handle_info(:check_calibration_status, state) do
+    Logger.info("Received :check_calibration_status with unmatched state #{inspect(state)}")
+    {:noreply, state}
   end
 
   # catch any message that does not match and log to console

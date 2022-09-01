@@ -11,6 +11,7 @@ defmodule ElixirInterviewStarter.CalibrationSession do
           precheck1: boolean(),
           status: String.t(),
           submerged_in_water: boolean(),
+          timer_ref: reference(),
           user_email: String.t()
         }
 
@@ -20,6 +21,7 @@ defmodule ElixirInterviewStarter.CalibrationSession do
     :precheck1,
     :status,
     :submerged_in_water,
+    :timer_ref,
     :user_email
   ]
 end
