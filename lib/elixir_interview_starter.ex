@@ -49,8 +49,13 @@ defmodule ElixirInterviewStarter do
   @doc """
   Retrieves the ongoing `CalibrationSession` for the provided user, if they have one
   """
-  def get_current_session(_user_email) do
-    {:ok, nil}
+  def get_current_session(user_email) do
+    with {:ok, session_pid} <- SessionManager.get_session_pid(user_email),
+         %CalibrationSession{} = session <- SessionManager.get_current_state(session_pid) do
+      {:ok, session}
+    else
+      _ -> {:ok, nil}
+    end
   end
 
   # Server (Callbacks)

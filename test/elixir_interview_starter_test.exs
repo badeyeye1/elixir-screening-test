@@ -33,8 +33,14 @@ defmodule ElixirInterviewStarterTest do
   end
 
   test "get_current_session/1 returns the provided user's ongoing calibration session" do
+    user_email = "jelly@mail.com"
+    ElixirInterviewStarter.start(user_email)
+
+    assert {:ok, %CalibrationSession{user_email: ^user_email}} =
+             ElixirInterviewStarter.get_current_session(user_email)
   end
 
   test "get_current_session/1 returns nil if the provided user has no ongoing calibrationo session" do
+    assert {:ok, nil} = ElixirInterviewStarter.get_current_session("nosession@mail.com")
   end
 end
