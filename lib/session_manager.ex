@@ -55,6 +55,14 @@ defmodule ElixirInterviewStarter.SessionManager do
   end
 
   @impl GenServer
+  def handle_info(%{"precheck1" => true}, state) do
+    {:noreply, %{state | precheck1: true, status: "PRE_CHECK1_SUCCEDED"}}
+  end
+
+  def handle_info(%{"precheck1" => _val}, state) do
+    {:noreply, %{state | precheck1: false, status: "PRE_CHECK1_FAILED"}}
+  end
+
   def handle_info(msg, state) do
     Logger.warn("Received unknown message - #{inspect(msg)}")
     {:noreply, state}
