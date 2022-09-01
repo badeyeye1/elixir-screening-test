@@ -5,6 +5,12 @@ defmodule ElixirInterviewStarter.SessionManagerTest do
   alias ElixirInterviewStarter.CalibrationSession
   alias ElixirInterviewStarter.SessionManager
 
+  def setup_precheck_1(user_email) do
+    {:ok, session_pid} = SessionManager.start(user_email)
+    send(session_pid, %{"precheck1" => true})
+    session_pid
+  end
+
   test "get_current_state/1 returns `CalibrationSession` given a valid session pid" do
     user_email = "user@mail.com"
     {:ok, session_pid} = SessionManager.start(user_email)
@@ -40,8 +46,7 @@ defmodule ElixirInterviewStarter.SessionManagerTest do
   describe "precheck2 async message processing" do
     test "updates session state when cartridgeStatus => true message is received" do
       user_email = "jolly@mail.com"
-      {:ok, session_pid} = SessionManager.start(user_email)
-      send(session_pid, %{"precheck1" => true})
+      session_pid = setup_precheck_1(user_email)
       send(session_pid, %{"cartridgeStatus" => true})
 
       state = SessionManager.get_current_state(session_pid)
@@ -51,8 +56,7 @@ defmodule ElixirInterviewStarter.SessionManagerTest do
 
     test "updates session state when cartridgeStatus => false message is received" do
       user_email = "jolly1@mail.com"
-      {:ok, session_pid} = SessionManager.start(user_email)
-      send(session_pid, %{"precheck1" => true})
+      session_pid = setup_precheck_1(user_email)
       send(session_pid, %{"cartridgeStatus" => false})
 
       state = SessionManager.get_current_state(session_pid)
@@ -62,8 +66,7 @@ defmodule ElixirInterviewStarter.SessionManagerTest do
 
     test "updates session state when submergedInWater => true message is received" do
       user_email = "molly@mail.com"
-      {:ok, session_pid} = SessionManager.start(user_email)
-      send(session_pid, %{"precheck1" => true})
+      session_pid = setup_precheck_1(user_email)
       send(session_pid, %{"submergedInWater" => true})
 
       state = SessionManager.get_current_state(session_pid)
@@ -73,8 +76,7 @@ defmodule ElixirInterviewStarter.SessionManagerTest do
 
     test "updates session state when submergedInWater => false message is received" do
       user_email = "molly1@mail.com"
-      {:ok, session_pid} = SessionManager.start(user_email)
-      send(session_pid, %{"precheck1" => true})
+      session_pid = setup_precheck_1(user_email)
       send(session_pid, %{"submergedInWater" => false})
 
       state = SessionManager.get_current_state(session_pid)
