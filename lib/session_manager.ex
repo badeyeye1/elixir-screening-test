@@ -32,6 +32,11 @@ defmodule ElixirInterviewStarter.SessionManager do
     end
   end
 
+  @spec get_current_state(pid) :: CalibrationSession.t()
+  def get_current_state(session_pid) do
+    GenServer.call(session_pid, :get_current_state)
+  end
+
   # Callbacks
   @impl GenServer
   def init(initial_state) do
@@ -43,6 +48,10 @@ defmodule ElixirInterviewStarter.SessionManager do
     :ok = DeviceMessages.send(user_email, "startPrecheck1")
     new_state = %{state | status: "PRE_CHECK1_STARTED"}
     {:reply, new_state, new_state}
+  end
+
+  def handle_call(:get_current_state, _from, state) do
+    {:reply, state, state}
   end
 
   @impl GenServer
