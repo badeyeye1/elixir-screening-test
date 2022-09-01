@@ -71,7 +71,7 @@ defmodule ElixirInterviewStarter do
       ) do
     case SessionManager.get_session_pid(user_email) do
       {:ok, session_pid} ->
-        Process.send(session_pid, payload, [])
+        send(session_pid, payload)
 
       {:error, _} ->
         Logger.warn("received message from device without an active session")
